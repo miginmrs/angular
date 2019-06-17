@@ -5,33 +5,85 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import '../ng_dev_mode';
+import '../../util/ng_dev_mode';
 
 import {StyleSanitizeFn} from '../../sanitization/style_sanitizer';
 import {getLContext} from '../context_discovery';
-import {ACTIVE_INDEX, LContainer} from '../interfaces/container';
+import {LContainer} from '../interfaces/container';
 import {LContext} from '../interfaces/context';
+import {AttributeMarker, TAttributes, TNode, TNodeFlags} from '../interfaces/node';
 import {PlayState, Player, PlayerContext, PlayerIndex} from '../interfaces/player';
 import {RElement} from '../interfaces/renderer';
-import {InitialStyles, StylingContext, StylingIndex} from '../interfaces/styling';
-import {FLAGS, HEADER_OFFSET, HOST, LView, RootContext} from '../interfaces/view';
-import {getTNode} from '../util';
+import {DirectiveRegistryValuesIndex, InitialStylingValues, StylingContext, StylingFlags, StylingIndex} from '../interfaces/styling';
+import {HEADER_OFFSET, HOST, LView, RootContext} from '../interfaces/view';
+import {getTNode, isStylingContext} from '../util/view_utils';
 
 import {CorePlayerHandler} from './core_player_handler';
+import {DEFAULT_TEMPLATE_DIRECTIVE_INDEX} from './shared';
+
+export const ANIMATION_PROP_PREFIX = '@';
 
 export function createEmptyStylingContext(
-    element?: RElement | null, sanitizer?: StyleSanitizeFn | null,
-    initialStylingValues?: InitialStyles): StylingContext {
-  return [
-    null,                            // PlayerContext
-    sanitizer || null,               // StyleSanitizer
-    initialStylingValues || [null],  // InitialStyles
+    wrappedElement?: LContainer | LView | RElement | null, sanitizer?: StyleSanitizeFn | null,
+    initialStyles?: InitialStylingValues | null,
+    initialClasses?: InitialStylingValues | null): StylingContext {
+  const context: StylingContext = [
+    wrappedElement || null,          // Element
     0,                               // MasterFlags
-    0,                               // ClassOffset
-    element || null,                 // Element
-    null,                            // PreviousMultiClassValue
-    null                             // PreviousMultiStyleValue
+    [] as any,                       // DirectiveRefs (this gets filled below)
+    initialStyles || [null, null],   // InitialStyles
+    initialClasses || [null, null],  // InitialClasses
+    [0, 0],                          // SinglePropOffsets
+    [0],                             // CachedMultiClassValue
+    [0],                             // CachedMultiStyleValue
+    null,                            // HostBuffer
+    null,                            // PlayerContext
   ];
+
+  // whenever a context is created there is always a `null` directive
+  // that is registered (which is a placeholder for the "template").
+  allocateOrUpdateDirectiveIntoContext(context, DEFAULT_TEMPLATE_DIRECTIVE_INDEX);
+  return context;
+}
+
+/**
+ * Allocates (registers) a directive into the directive registry within the provided styling
+ * context.
+ *
+ * For each and every `[style]`, `[style.prop]`, `[class]`, `[class.name]` binding
+ * (as well as static style and class attributes) a directive, component or template
+ * is marked as the owner. When an owner is determined (this happens when the template
+ * is first passed over) the directive owner is allocated into the styling context. When
+ * this happens, each owner gets its own index value. This then ensures that once any
+ * style and/or class binding are assigned into the context then they are marked to
+ * that directive's index value.
+ *
+ * @param context the target StylingContext
+ * @param directiveRef the directive that will be allocated into the context
+ * @returns the index where the directive was inserted into
+ */
+export function allocateOrUpdateDirectiveIntoContext(
+    context: StylingContext, directiveIndex: number, singlePropValuesIndex: number = -1,
+    styleSanitizer?: StyleSanitizeFn | null | undefined): void {
+  const directiveRegistry = context[StylingIndex.DirectiveRegistryPosition];
+
+  const index = directiveIndex * DirectiveRegistryValuesIndex.Size;
+  // we preemptively make space into the directives array and then
+  // assign values slot-by-slot to ensure that if the directive ordering
+  // changes then it will still function
+  const limit = index + DirectiveRegistryValuesIndex.Size;
+  for (let i = directiveRegistry.length; i < limit; i += DirectiveRegistryValuesIndex.Size) {
+    // -1 is used to signal that the directive has been allocated, but
+    // no actual style or class bindings have been registered yet...
+    directiveRegistry.push(-1, null);
+  }
+
+  const propValuesStartPosition = index + DirectiveRegistryValuesIndex.SinglePropValuesIndexOffset;
+  if (singlePropValuesIndex >= 0 && directiveRegistry[propValuesStartPosition] === -1) {
+    directiveRegistry[propValuesStartPosition] = singlePropValuesIndex;
+    directiveRegistry[index + DirectiveRegistryValuesIndex.StyleSanitizerOffset] =
+        styleSanitizer || null;
+  }
 }
 
 /**
@@ -44,7 +96,20 @@ export function allocStylingContext(
     element: RElement | null, templateStyleContext: StylingContext): StylingContext {
   // each instance gets a copy
   const context = templateStyleContext.slice() as any as StylingContext;
+
+  // the HEADER values contain arrays which also need
+  // to be copied over into the new context
+  for (let i = 0; i < StylingIndex.SingleStylesStartPosition; i++) {
+    const value = templateStyleContext[i];
+    if (Array.isArray(value)) {
+      context[i] = value.slice();
+    }
+  }
+
   context[StylingIndex.ElementPosition] = element;
+
+  // this will prevent any other directives from extending the context
+  context[StylingIndex.MasterFlagPosition] |= StylingFlags.BindingAllocationLocked;
   return context;
 }
 
@@ -56,10 +121,10 @@ export function allocStylingContext(
  * every style declaration such as `<div style="color: red">` would result `StyleContext`
  * which would create unnecessary memory pressure.
  *
- * @param index Index of the style allocation. See: `elementStyling`.
+ * @param index Index of the style allocation. See: `styling`.
  * @param viewData The view to search for the styling context
  */
-export function getStylingContext(index: number, viewData: LView): StylingContext {
+export function getStylingContextFromLView(index: number, viewData: LView): StylingContext {
   let storageIndex = index;
   let slotValue: LContainer|LView|StylingContext|RElement = viewData[storageIndex];
   let wrapper: LContainer|LView|StylingContext = viewData;
@@ -70,7 +135,7 @@ export function getStylingContext(index: number, viewData: LView): StylingContex
   }
 
   if (isStylingContext(wrapper)) {
-    return wrapper as StylingContext;
+    return wrapper;
   } else {
     // This is an LView or an LContainer
     const stylingTemplate = getTNode(index - HEADER_OFFSET, viewData).stylingTemplate;
@@ -85,10 +150,37 @@ export function getStylingContext(index: number, viewData: LView): StylingContex
   }
 }
 
-export function isStylingContext(value: any): value is StylingContext {
-  // Not an LView or an LContainer
-  return Array.isArray(value) && typeof value[FLAGS] !== 'number' &&
-      typeof value[ACTIVE_INDEX] !== 'number';
+
+export function isAnimationProp(name: string): boolean {
+  return name[0] === ANIMATION_PROP_PREFIX;
+}
+
+export function hasClassInput(tNode: TNode) {
+  return (tNode.flags & TNodeFlags.hasClassInput) !== 0;
+}
+
+export function hasStyleInput(tNode: TNode) {
+  return (tNode.flags & TNodeFlags.hasStyleInput) !== 0;
+}
+
+export function forceClassesAsString(classes: string | {[key: string]: any} | null | undefined):
+    string {
+  if (classes && typeof classes !== 'string') {
+    classes = Object.keys(classes).join(' ');
+  }
+  return (classes as string) || '';
+}
+
+export function forceStylesAsString(styles: {[key: string]: any} | null | undefined): string {
+  let str = '';
+  if (styles) {
+    const props = Object.keys(styles);
+    for (let i = 0; i < props.length; i++) {
+      const prop = props[i];
+      str += (i ? ';' : '') + `${prop}:${styles[prop]}`;
+    }
+  }
+  return str;
 }
 
 export function addPlayerInternal(
@@ -160,7 +252,7 @@ export function getOrCreatePlayerContext(target: {}, context?: LContext | null):
   }
 
   const {lView, nodeIndex} = context;
-  const stylingContext = getStylingContext(nodeIndex, lView);
+  const stylingContext = getStylingContextFromLView(nodeIndex, lView);
   return getPlayerContext(stylingContext) || allocPlayerContext(stylingContext);
 }
 

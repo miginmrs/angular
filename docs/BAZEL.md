@@ -22,7 +22,7 @@ You can access Bazel with the `yarn bazel` command
 
 The `WORKSPACE` file indicates that our root directory is a
 Bazel project. It contains the version of the Bazel rules we
-use to execute build steps, from `build_bazel_rules_typescript`.
+use to execute build steps, from `npm_bazel_typescript`.
 The sources on [GitHub] are published from Google's internal
 repository (google3).
 
@@ -81,6 +81,9 @@ See also: [`//.bazelrc`](https://github.com/angular/angular/blob/master/.bazelrc
 
 The process should automatically connect to the debugger. For additional info and testing options, see the [nodejs_test documentation](https://bazelbuild.github.io/rules_nodejs/node/node.html#nodejs_test).
 
+- Click on "Resume script execution" to let the code run until the first `debugger` statement or a previously set breakpoint.
+- If you're debugging an ivy test and you want to inspect the generated template instructions, find the template of your component in the call stack and click on `(source mapped from [CompName].js)` at the bottom of the code. You can also disable sourcemaps in the options or go to sources and look into ng:// namespace to see all the generated code.
+
 ### Debugging a Node Test in VSCode
 
 First time setup:
@@ -88,28 +91,12 @@ First time setup:
 - Add the following to the `configurations` array:
 
 ```json
-        {
-            "name": "Attach (inspect)",
-            "type": "node",
-            "request": "attach",
-            "port": 9229,
-            "address": "localhost",
-            "restart": false,
-            "sourceMaps": true,
-            "localRoot": "${workspaceRoot}",
-            "remoteRoot": null
-        },
-        {
-            "name": "Attach (no-sm,inspect)",
-            "type": "node",
-            "request": "attach",
-            "port": 9229,
-            "address": "localhost",
-            "restart": false,
-            "sourceMaps": false,
-            "localRoot": "${workspaceRoot}",
-            "remoteRoot": null
-        },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to Remote",
+      "port": 9229
+    }
 ```
 
 **Setting breakpoints directly in your code files may not work in VSCode**. This is because the files you're actually debugging are built files that exist in a `./private/...` folder.
@@ -118,7 +105,7 @@ and launch the bazel corresponding test (`yarn bazel test <target> --config=debu
 
 Bazel will wait on a connection. Go to the debug view (by clicking on the sidebar or
 Apple+Shift+D on Mac) and click on the green play icon next to the configuration name
-(ie `Attach (inspect)`).
+(ie `Attach to Remote`).
 
 ### Debugging a Karma Test
 
@@ -149,7 +136,7 @@ Bazel supports the ability to include non-hermetic information from the version 
 You can see an overview at https://www.kchodorow.com/blog/2017/03/27/stamping-your-builds/
 In our repo, here is how it's configured:
 
-1) In `tools/bazel_stamp_vars.sh` we run the `git` commands to generate our versioning info.
+1) In `tools/bazel_stamp_vars.js` we run the `git` commands to generate our versioning info.
 1) In `.bazelrc` we register this script as the value for the `workspace_status_command` flag. Bazel will run the script when it needs to stamp a binary.
 
 Note that Bazel has a `--stamp` argument to `yarn bazel build`, but this has no effect since our stamping takes place in Skylark rules. See https://github.com/bazelbuild/bazel/issues/1054
@@ -165,8 +152,23 @@ Of course, non-hermeticity in an action can cause problems.
 At worst, you can fetch a broken artifact from the cache, making your build non-reproducible.
 For this reason, we are careful to implement our Bazel rules to depend only on their inputs.
 
-Currently we only use remote caching on CircleCI.
-We could enable it for developer builds as well, which would make initial builds much faster for developers by fetching already-built artifacts from the cache.
+Currently we only use remote caching on CircleCI and we let Angular core developers enable remote caching to speed up their builds.
+
+### Remote cache in development
+
+To enable remote caching for your build:
+
+1. Go to the service accounts for the ["internal" project](https://console.cloud.google.com/iam-admin/serviceaccounts?project=internal-200822)
+1. Select "Angular local dev", click on "Edit", scroll to the bottom, and click "Create key"
+1. When the pop-up shows, select "JSON" for "Key type" and click "Create"
+1. Save the key in a secure location
+1. Create a file called `.bazelrc.user` in the root directory of the workspace, and add the following content:
+
+```
+build --config=angular-team --google_credentials=[ABSOLUTE_PATH_TO_SERVICE_KEY]
+```
+
+### Remote cache for Circle CI
 
 This feature is experimental, and developed by the CircleCI team with guidance from Angular.
 Contact Alex Eagle with questions.
@@ -248,11 +250,6 @@ Usually there is a single item (or multiple items of the same kind) where the ov
 
 
 ## Known issues
-
-### Webstorm
-
-The autocompletion in WebStorm can be added via a Bazel plugin intended for IntelliJ IDEA, but the plugin needs to be installed in a special way.
-See [bazelbuild/intellij#246](https://github.com/bazelbuild/intellij/issues/246) for more info.
 
 ### Xcode
 

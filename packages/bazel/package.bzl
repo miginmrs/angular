@@ -9,42 +9,12 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def rules_angular_dependencies():
-    """
-    Fetch our transitive dependencies.
-
-    If the user wants to get a different version of these, they can just fetch it
-    from their WORKSPACE before calling this function, or not call this function at all.
-    """
-
-    #
-    # Download Bazel toolchain dependencies as needed by build actions
-    # Use a SHA to get fix for needing symlink_prefix during npm publishing
-    # TODO(alexeagle): updated to next tagged rules_typescript release
-    _maybe(
-        http_archive,
-        name = "build_bazel_rules_nodejs",
-        url = "https://github.com/bazelbuild/rules_nodejs/archive/ee218e2a98b9f09ba07cecac8496a5918c47bc5d.zip",
-        strip_prefix = "rules_nodejs-ee218e2a98b9f09ba07cecac8496a5918c47bc5d",
-    )
-
-    _maybe(
-        http_archive,
-        name = "build_bazel_rules_typescript",
-        url = "https://github.com/bazelbuild/rules_typescript/archive/0.21.0.zip",
-        strip_prefix = "rules_typescript-0.21.0",
-    )
-
-    # Needed for Remote Execution
-    _maybe(
-        http_archive,
-        name = "bazel_toolchains",
-        sha256 = "c3b08805602cd1d2b67ebe96407c1e8c6ed3d4ce55236ae2efe2f1948f38168d",
-        strip_prefix = "bazel-toolchains-5124557861ebf4c0b67f98180bff1f8551e0b421",
-        urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/5124557861ebf4c0b67f98180bff1f8551e0b421.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/archive/5124557861ebf4c0b67f98180bff1f8551e0b421.tar.gz",
-        ],
-    )
+    print("""DEPRECATION WARNING:
+    rules_angular_dependencies is no longer needed, and will be removed in a future release.
+    We assume you will fetch rules_nodejs in your WORKSPACE file, and no other dependencies remain here.
+    Simply remove any calls to this function and the corresponding call to
+      load("@angular//:package.bzl", "rules_angular_dependencies")
+    """)
 
 def rules_angular_dev_dependencies():
     """
@@ -54,57 +24,34 @@ def rules_angular_dev_dependencies():
     shorter.
     """
 
-    # We have a source dependency on the Devkit repository, because it's built with
-    # Bazel.
-    # This allows us to edit sources and have the effect appear immediately without
-    # re-packaging or "npm link"ing.
-    # Even better, things like aspects will visit the entire graph including
-    # ts_library rules in the devkit repository.
-    http_archive(
-        name = "angular_cli",
-        sha256 = "8cf320ea58c321e103f39087376feea502f20eaf79c61a4fdb05c7286c8684fd",
-        strip_prefix = "angular-cli-6.1.0-rc.0",
-        url = "https://github.com/angular/angular-cli/archive/v6.1.0-rc.0.zip",
-    )
-
-    http_archive(
-        name = "org_brotli",
-        sha256 = "774b893a0700b0692a76e2e5b7e7610dbbe330ffbe3fe864b4b52ca718061d5a",
-        strip_prefix = "brotli-1.0.5",
-        url = "https://github.com/google/brotli/archive/v1.0.5.zip",
-    )
-
-    # Fetching the Bazel source code allows us to compile the Skylark linter
-    http_archive(
-        name = "io_bazel",
-        sha256 = "978f7e0440dd82182563877e2e0b7c013b26b3368888b57837e9a0ae206fd396",
-        strip_prefix = "bazel-0.18.0",
-        url = "https://github.com/bazelbuild/bazel/archive/0.18.0.zip",
-    )
-
-    http_archive(
-        name = "com_github_bazelbuild_buildtools",
-        sha256 = "a82d4b353942b10c1535528b02bff261d020827c9c57e112569eddcb1c93d7f6",
-        strip_prefix = "buildtools-0.17.2",
-        url = "https://github.com/bazelbuild/buildtools/archive/0.17.2.zip",
+    # Needed for Remote Execution
+    _maybe(
+        http_archive,
+        name = "bazel_toolchains",
+        sha256 = "142bcbd8cb751ce1193a1d7fef4e328493cd0a69cc0555183ad237f81418ba40",
+        strip_prefix = "bazel-toolchains-628224f6cf48e81116d0ee0bf65424eaa630d5b3",
+        urls = [
+            "https://github.com/xingao267/bazel-toolchains/archive/628224f6cf48e81116d0ee0bf65424eaa630d5b3.tar.gz",
+        ],
     )
 
     #############################################
     # Dependencies for generating documentation #
     #############################################
+    # TODO(gregmagolan): update to upstream commit once https://github.com/bazelbuild/rules_sass/pull/87 lands
     http_archive(
         name = "io_bazel_rules_sass",
-        sha256 = "dbe9fb97d5a7833b2a733eebc78c9c1e3880f676ac8af16e58ccf2139cbcad03",
-        strip_prefix = "rules_sass-1.11.0",
-        url = "https://github.com/bazelbuild/rules_sass/archive/1.11.0.zip",
+        sha256 = "1c20d2ddc3d42712543e3b77bceac1bfea072849602569a6fc8b107e6d520ac6",
+        strip_prefix = "rules_sass-d033c0f9f7a2c75b73068f6647a5b0cc5070fd90",
+        url = "https://github.com/gregmagolan/rules_sass/archive/d033c0f9f7a2c75b73068f6647a5b0cc5070fd90.zip",
     )
 
     http_archive(
         name = "io_bazel_skydoc",
-        sha256 = "7bfb5545f59792a2745f2523b9eef363f9c3e7274791c030885e7069f8116016",
-        strip_prefix = "skydoc-fe2e9f888d28e567fef62ec9d4a93c425526d701",
+        sha256 = "f88058b43112e9bdc7fdb0abbdc17c5653268708c01194a159641119195e45c6",
+        strip_prefix = "skydoc-a9550cb3ca3939cbabe3b589c57b6f531937fa99",
         # TODO: switch to upstream when https://github.com/bazelbuild/skydoc/pull/103 is merged
-        url = "https://github.com/alexeagle/skydoc/archive/fe2e9f888d28e567fef62ec9d4a93c425526d701.zip",
+        url = "https://github.com/alexeagle/skydoc/archive/a9550cb3ca3939cbabe3b589c57b6f531937fa99.zip",
     )
 
 def _maybe(repo_rule, name, **kwargs):

@@ -11,9 +11,9 @@ import {getDebugContext} from '@angular/core/src/errors';
 import {ArgumentType, DepFlags, NodeFlags, Services, anchorDef, asElementData, directiveDef, elementDef, providerDef, textDef} from '@angular/core/src/view/index';
 import {TestBed, withModule} from '@angular/core/testing';
 import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
+import {ivyEnabled} from '@angular/private/testing';
 
 import {ARG_TYPE_VALUES, checkNodeInlineOrDynamic, createRootView, createAndGetRootNodes, compViewDef, compViewDefFactory} from './helper';
-import {fixmeIvy} from '@angular/private/testing';
 
 {
   describe(`View Providers`, () => {
@@ -138,7 +138,7 @@ import {fixmeIvy} from '@angular/private/testing';
           expect(instance.dep instanceof Dep).toBeTruthy();
         });
 
-        fixmeIvy('unknown').it('should not inject deps from sibling root elements', () => {
+        it('should not inject deps from sibling root elements', () => {
           const rootElNodes = [
             elementDef(0, NodeFlags.None, null, null, 1, 'span'),
             directiveDef(1, NodeFlags.None, null, 0, Dep, []),
@@ -148,7 +148,7 @@ import {fixmeIvy} from '@angular/private/testing';
 
           expect(() => createAndGetRootNodes(compViewDef(rootElNodes)))
               .toThrowError(
-                  'StaticInjectorError(DynamicTestModule)[SomeService -> Dep]: \n' +
+                  `${ivyEnabled ? 'R3InjectorError' : 'StaticInjectorError'}(DynamicTestModule)[SomeService -> Dep]: \n` +
                   '  StaticInjectorError(Platform: core)[SomeService -> Dep]: \n' +
                   '    NullInjectorError: No provider for Dep!');
 
@@ -162,7 +162,7 @@ import {fixmeIvy} from '@angular/private/testing';
 
           expect(() => createAndGetRootNodes(compViewDef(nonRootElNodes)))
               .toThrowError(
-                  'StaticInjectorError(DynamicTestModule)[SomeService -> Dep]: \n' +
+                  `${ivyEnabled ? 'R3InjectorError' : 'StaticInjectorError'}(DynamicTestModule)[SomeService -> Dep]: \n` +
                   '  StaticInjectorError(Platform: core)[SomeService -> Dep]: \n' +
                   '    NullInjectorError: No provider for Dep!');
         });
@@ -181,13 +181,13 @@ import {fixmeIvy} from '@angular/private/testing';
           expect(instance.dep instanceof Dep).toBeTruthy();
         });
 
-        fixmeIvy('unknown').it('should throw for missing dependencies', () => {
+        it('should throw for missing dependencies', () => {
           expect(() => createAndGetRootNodes(compViewDef([
                    elementDef(0, NodeFlags.None, null, null, 1, 'span'),
                    directiveDef(1, NodeFlags.None, null, 0, SomeService, ['nonExistingDep'])
                  ])))
               .toThrowError(
-                  'StaticInjectorError(DynamicTestModule)[nonExistingDep]: \n' +
+                  `${ivyEnabled ? 'R3InjectorError' : 'StaticInjectorError'}(DynamicTestModule)[nonExistingDep]: \n` +
                   '  StaticInjectorError(Platform: core)[nonExistingDep]: \n' +
                   '    NullInjectorError: No provider for nonExistingDep!');
         });

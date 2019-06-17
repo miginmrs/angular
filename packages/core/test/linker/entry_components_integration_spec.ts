@@ -10,7 +10,7 @@ import {ANALYZE_FOR_ENTRY_COMPONENTS, Component, ComponentFactoryResolver, ɵivy
 import {Console} from '@angular/core/src/console';
 import {noComponentFactoryError} from '@angular/core/src/linker/component_factory_resolver';
 import {TestBed} from '@angular/core/testing';
-import {fixmeIvy} from '@angular/private/testing';
+import {obsoleteInIvy} from '@angular/private/testing';
 
 
 if (ivyEnabled) {
@@ -69,20 +69,21 @@ function declareTests(config?: {useJit: boolean}) {
       expect(childComp.cfr.resolveComponentFactory(ChildComp) !.componentType).toBe(ChildComp);
     });
 
-    fixmeIvy('unknown').it(
-        'should not be able to get components from a parent component (content hierarchy)', () => {
-          TestBed.overrideComponent(
-              MainComp, {set: {template: '<child><nested></nested></child>'}});
-          TestBed.overrideComponent(ChildComp, {set: {template: '<ng-content></ng-content>'}});
+    obsoleteInIvy('In Ivy, the ComponentFactoryResolver can resolve any component factory')
+        .it('should not be able to get components from a parent component (content hierarchy)',
+            () => {
+              TestBed.overrideComponent(
+                  MainComp, {set: {template: '<child><nested></nested></child>'}});
+              TestBed.overrideComponent(ChildComp, {set: {template: '<ng-content></ng-content>'}});
 
-          const compFixture = TestBed.createComponent(MainComp);
-          const nestedChildCompEl = compFixture.debugElement.children[0].children[0];
-          const nestedChildComp: NestedChildComp = nestedChildCompEl.componentInstance;
-          expect(nestedChildComp.cfr.resolveComponentFactory(ChildComp) !.componentType)
-              .toBe(ChildComp);
-          expect(() => nestedChildComp.cfr.resolveComponentFactory(NestedChildComp))
-              .toThrow(noComponentFactoryError(NestedChildComp));
-        });
+              const compFixture = TestBed.createComponent(MainComp);
+              const nestedChildCompEl = compFixture.debugElement.children[0].children[0];
+              const nestedChildComp: NestedChildComp = nestedChildCompEl.componentInstance;
+              expect(nestedChildComp.cfr.resolveComponentFactory(ChildComp) !.componentType)
+                  .toBe(ChildComp);
+              expect(() => nestedChildComp.cfr.resolveComponentFactory(NestedChildComp))
+                  .toThrow(noComponentFactoryError(NestedChildComp));
+            });
 
   });
 }

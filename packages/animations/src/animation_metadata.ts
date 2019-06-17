@@ -671,8 +671,8 @@ export function animate(
  *
  * ```typescript
  * group([
- *   animate("1s", { background: "black" }))
- *   animate("2s", { color: "white" }))
+ *   animate("1s", style({ background: "black" })),
+ *   animate("2s", style({ color: "white" }))
  * ])
  * ```
  *
@@ -708,7 +708,7 @@ export function group(
  * ```typescript
  * sequence([
  *   style({ opacity: 0 })),
- *   animate("1s", { opacity: 1 }))
+ *   animate("1s", style({ opacity: 1 }))
  * ])
  * ```
  *
@@ -1103,7 +1103,7 @@ export function animation(
  * for a child animation to run, the parent animation must query each of the elements
  * containing child animations, and run them using this function.
  *
- * Note that this feature designed to be used with `query()` and it will only work
+ * Note that this feature is designed to be used with `query()` and it will only work
  * with animations that are assigned using the Angular animation library. CSS keyframes
  * and transitions are not handled by this API.
  *
@@ -1132,7 +1132,7 @@ export function useAnimation(
 
 /**
  * Finds one or more inner elements within the current element that is
- * being animated within a sequence. Use with `animateChild()`.
+ * being animated within a sequence. Use with `animate()`.
  *
  * @param selector The element to query, or a set of elements that contain Angular-specific
  * characteristics, specified with one or more of the following tokens.
@@ -1179,7 +1179,7 @@ export function useAnimation(
  * ### Usage Example
  *
  * The following example queries for inner elements and animates them
- * individually using `animateChild()`.
+ * individually using `animate()`. 
  *
  * ```typescript
  * @Component({
@@ -1200,8 +1200,8 @@ export function useAnimation(
  *        query('.content', style({ opacity: 0 })),
  *
  *        // animate the inner elements in, one by one
- *        query('h1', animate(1000, style({ opacity: 1 })),
- *        query('.content', animate(1000, style({ opacity: 1 })),
+ *        query('h1', animate(1000, style({ opacity: 1 }))),
+ *        query('.content', animate(1000, style({ opacity: 1 }))),
  *      ])
  *    ])
  *  ]

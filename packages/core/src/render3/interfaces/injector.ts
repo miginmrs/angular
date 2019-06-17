@@ -7,8 +7,9 @@
  */
 
 import {InjectionToken} from '../../di/injection_token';
-import {InjectFlags} from '../../di/injector_compatibility';
-import {Type} from '../../type';
+import {InjectFlags} from '../../di/interface/injector';
+import {Type} from '../../interface/type';
+
 import {TElementNode} from './node';
 import {LView, TData} from './view';
 
@@ -26,7 +27,6 @@ export interface RelativeInjectorLocation { __brand__: 'RelativeInjectorLocation
 
 export const enum RelativeInjectorLocationFlags {
   InjectorIndexMask = 0b111111111111111,
-  AcrossHostBoundary = 0b1000000000000000,
   ViewOffsetShift = 16,
   NO_PARENT = -1,
 }
@@ -241,10 +241,10 @@ export class NodeInjectorFactory {
   }
 }
 
-const FactoryPrototype = NodeInjectorFactory.prototype;
 export function isFactory(obj: any): obj is NodeInjectorFactory {
   // See: https://jsperf.com/instanceof-vs-getprototypeof
-  return obj != null && typeof obj == 'object' && Object.getPrototypeOf(obj) == FactoryPrototype;
+  return obj !== null && typeof obj == 'object' &&
+      Object.getPrototypeOf(obj) == NodeInjectorFactory.prototype;
 }
 
 // Note: This hack is necessary so we don't erroneously get a circular dependency

@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Inject, LOCALE_ID, Pipe, PipeTransform} from '@angular/core';
+import {Inject, Injectable, LOCALE_ID, Pipe, PipeTransform} from '@angular/core';
 import {formatCurrency, formatNumber, formatPercent} from '../i18n/format_number';
 import {getCurrencySymbol} from '../i18n/locale_data_api';
 import {invalidPipeArgumentError} from './invalid_pipe_argument_error';
@@ -46,6 +46,7 @@ import {invalidPipeArgumentError} from './invalid_pipe_argument_error';
  *
  * @publicApi
  */
+@Injectable()
 @Pipe({name: 'number'})
 export class DecimalPipe implements PipeTransform {
   constructor(@Inject(LOCALE_ID) private _locale: string) {}
@@ -99,6 +100,7 @@ export class DecimalPipe implements PipeTransform {
  *
  * @publicApi
  */
+@Injectable()
 @Pipe({name: 'percent'})
 export class PercentPipe implements PipeTransform {
   constructor(@Inject(LOCALE_ID) private _locale: string) {}
@@ -153,6 +155,7 @@ export class PercentPipe implements PipeTransform {
  *
  * @publicApi
  */
+@Injectable()
 @Pipe({name: 'currency'})
 export class CurrencyPipe implements PipeTransform {
   constructor(@Inject(LOCALE_ID) private _locale: string) {}
@@ -179,9 +182,9 @@ export class CurrencyPipe implements PipeTransform {
    *   - `minIntegerDigits`: The minimum number of integer digits before the decimal point.
    * Default is `1`.
    *   - `minFractionDigits`: The minimum number of digits after the decimal point.
-   * Default is `0`.
+   * Default is `2`.
    *   - `maxFractionDigits`: The maximum number of digits after the decimal point.
-   * Default is `3`.
+   * Default is `2`.
    * If not provided, the number will be formatted with the proper amount of digits,
    * depending on what the [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) specifies.
    * For example, the Canadian dollar has 2 digits, whereas the Chilean peso has none.

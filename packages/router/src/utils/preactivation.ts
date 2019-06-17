@@ -147,9 +147,16 @@ function getRouteGuards(
 function shouldRunGuardsAndResolvers(
     curr: ActivatedRouteSnapshot, future: ActivatedRouteSnapshot,
     mode: RunGuardsAndResolvers | undefined): boolean {
+  if (typeof mode === 'function') {
+    return mode(curr, future);
+  }
   switch (mode) {
     case 'pathParamsChange':
       return !equalPath(curr.url, future.url);
+
+    case 'pathParamsOrQueryParamsChange':
+      return !equalPath(curr.url, future.url) ||
+          !shallowEqual(curr.queryParams, future.queryParams);
 
     case 'always':
       return true;

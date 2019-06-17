@@ -6,13 +6,14 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ANALYZE_FOR_ENTRY_COMPONENTS, ApplicationRef, Component, ComponentRef, ContentChild, Directive, ErrorHandler, EventEmitter, HostListener, InjectionToken, Injector, Input, NgModule, NgModuleRef, NgZone, Output, Pipe, PipeTransform, Provider, QueryList, Renderer2, SimpleChanges, TemplateRef, ViewChildren, ViewContainerRef, destroyPlatform, ɵivyEnabled as ivyEnabled} from '@angular/core';
+import {DOCUMENT} from '@angular/common';
+import {ANALYZE_FOR_ENTRY_COMPONENTS, ApplicationRef, Component, ComponentRef, ContentChild, Directive, ErrorHandler, EventEmitter, HostListener, InjectionToken, Injector, Input, NgModule, NgModuleRef, NgZone, Output, Pipe, PipeTransform, Provider, QueryList, Renderer2, SimpleChanges, TemplateRef, ViewChild, ViewChildren, ViewContainerRef, destroyPlatform, ɵivyEnabled as ivyEnabled} from '@angular/core';
 import {TestBed, fakeAsync, inject, tick} from '@angular/core/testing';
-import {BrowserModule, By, DOCUMENT} from '@angular/platform-browser';
+import {BrowserModule, By} from '@angular/platform-browser';
 import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
 import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
-import {fixmeIvy, modifiedInIvy} from '@angular/private/testing';
+import {modifiedInIvy, onlyInIvy} from '@angular/private/testing';
 
 if (ivyEnabled) {
   describe('ivy', () => { declareTests(); });
@@ -32,7 +33,7 @@ function declareTests(config?: {useJit: boolean}) {
     describe('platform pipes', () => {
       beforeEach(() => { TestBed.configureCompiler({...config}); });
 
-      fixmeIvy('unknown').it('should overwrite them by custom pipes', () => {
+      it('should overwrite them by custom pipes', () => {
         TestBed.configureTestingModule({declarations: [CustomPipe]});
         const template = '{{true | somePipe}}';
         TestBed.overrideComponent(MyComp1, {set: {template}});
@@ -74,46 +75,43 @@ function declareTests(config?: {useJit: boolean}) {
         expect(CountingPipe.calls).toBe(1);
       });
 
-      fixmeIvy('FW-756: Pipes and directives from imported modules are not taken into account')
-          .it('should only update the bound property when using asyncPipe - #15205',
-              fakeAsync(() => {
-                @Component({template: '<div myDir [a]="p | async" [b]="2"></div>'})
-                class MyComp {
-                  p = Promise.resolve(1);
-                }
+      it('should only update the bound property when using asyncPipe - #15205', fakeAsync(() => {
+           @Component({template: '<div myDir [a]="p | async" [b]="2"></div>'})
+           class MyComp {
+             p = Promise.resolve(1);
+           }
 
-                @Directive({selector: '[myDir]'})
-                class MyDir {
-                  setterCalls: {[key: string]: any} = {};
-                  // TODO(issue/24571): remove '!'.
-                  changes !: SimpleChanges;
+           @Directive({selector: '[myDir]'})
+           class MyDir {
+             setterCalls: {[key: string]: any} = {};
+             // TODO(issue/24571): remove '!'.
+             changes !: SimpleChanges;
 
-                  @Input()
-                  set a(v: number) { this.setterCalls['a'] = v; }
-                  @Input()
-                  set b(v: number) { this.setterCalls['b'] = v; }
+             @Input()
+             set a(v: number) { this.setterCalls['a'] = v; }
+             @Input()
+             set b(v: number) { this.setterCalls['b'] = v; }
 
-                  ngOnChanges(changes: SimpleChanges) { this.changes = changes; }
-                }
+             ngOnChanges(changes: SimpleChanges) { this.changes = changes; }
+           }
 
-                TestBed.configureTestingModule({declarations: [MyDir, MyComp]});
-                const fixture = TestBed.createComponent(MyComp);
-                const dir =
-                    fixture.debugElement.query(By.directive(MyDir)).injector.get(MyDir) as MyDir;
+           TestBed.configureTestingModule({declarations: [MyDir, MyComp]});
+           const fixture = TestBed.createComponent(MyComp);
+           const dir = fixture.debugElement.query(By.directive(MyDir)).injector.get(MyDir) as MyDir;
 
-                fixture.detectChanges();
-                expect(dir.setterCalls).toEqual({'a': null, 'b': 2});
-                expect(Object.keys(dir.changes)).toEqual(['a', 'b']);
+           fixture.detectChanges();
+           expect(dir.setterCalls).toEqual({'a': null, 'b': 2});
+           expect(Object.keys(dir.changes)).toEqual(['a', 'b']);
 
-                dir.setterCalls = {};
-                dir.changes = {};
+           dir.setterCalls = {};
+           dir.changes = {};
 
-                tick();
-                fixture.detectChanges();
+           tick();
+           fixture.detectChanges();
 
-                expect(dir.setterCalls).toEqual({'a': 1});
-                expect(Object.keys(dir.changes)).toEqual(['a']);
-              }));
+           expect(dir.setterCalls).toEqual({'a': 1});
+           expect(Object.keys(dir.changes)).toEqual(['a']);
+         }));
 
       it('should only evaluate methods once - #10639', () => {
         TestBed.configureTestingModule({declarations: [MyCountingComp]});
@@ -320,6 +318,13 @@ function declareTests(config?: {useJit: boolean}) {
       expect(ctx.componentInstance.viewContainers.first).toBe(vc);
     });
 
+    it('should not throw when encountering an empty class attribute', () => {
+      const template = '<div class=""></div>';
+      TestBed.overrideComponent(MyComp1, {set: {template}});
+
+      expect(() => TestBed.createComponent(MyComp1)).not.toThrow();
+    });
+
     describe('empty templates - #15143', () => {
       it('should allow empty components', () => {
         @Component({template: ''})
@@ -351,35 +356,52 @@ function declareTests(config?: {useJit: boolean}) {
           });
     });
 
-    fixmeIvy('unknown').it(
-        'should support @ContentChild and @Input on the same property for static queries', () => {
-          @Directive({selector: 'test'})
-          class Test {
-            // TODO(issue/24571): remove '!'.
-            @Input() @ContentChild(TemplateRef) tpl !: TemplateRef<any>;
-          }
+    modifiedInIvy('Static ViewChild and ContentChild queries are resolved in update mode')
+        .it('should support @ContentChild and @Input on the same property for static queries',
+            () => {
+              @Directive({selector: 'test'})
+              class Test {
+                // TODO(issue/24571): remove '!'.
+                @Input() @ContentChild(TemplateRef, {static: true}) tpl !: TemplateRef<any>;
+              }
 
-          @Component({
-            selector: 'my-app',
-            template: `
+              @Component({
+                selector: 'my-app',
+                template: `
           <test></test><br>
           <test><ng-template>Custom as a child</ng-template></test><br>
           <ng-template #custom>Custom as a binding</ng-template>
           <test [tpl]="custom"></test><br>
         `
-          })
+              })
+              class App {
+              }
+
+              const fixture =
+                  TestBed.configureTestingModule({declarations: [App, Test]}).createComponent(App);
+              fixture.detectChanges();
+
+              const testDirs = fixture.debugElement.queryAll(By.directive(Test))
+                                   .map(el => el.injector.get(Test));
+              expect(testDirs[0].tpl).toBeUndefined();
+              expect(testDirs[1].tpl).toBeDefined();
+              expect(testDirs[2].tpl).toBeDefined();
+            });
+
+    onlyInIvy('Ivy does not support @ContentChild and @Input on the same property')
+        .it('should throw if @ContentChild and @Input are on the same property', () => {
+          @Directive({selector: 'test'})
+          class Test {
+            @Input() @ContentChild(TemplateRef, {static: true}) tpl !: TemplateRef<any>;
+          }
+
+          @Component({selector: 'my-app', template: `<test></test>`})
           class App {
           }
 
-          const fixture =
-              TestBed.configureTestingModule({declarations: [App, Test]}).createComponent(App);
-          fixture.detectChanges();
-
-          const testDirs =
-              fixture.debugElement.queryAll(By.directive(Test)).map(el => el.injector.get(Test));
-          expect(testDirs[0].tpl).toBeUndefined();
-          expect(testDirs[1].tpl).toBeDefined();
-          expect(testDirs[2].tpl).toBeDefined();
+          expect(() => {
+            TestBed.configureTestingModule({declarations: [App, Test]}).createComponent(App);
+          }).toThrowError(/Cannot combine @Input decorators with query decorators/);
         });
 
     it('should not add ng-version for dynamically created components', () => {
@@ -479,23 +501,35 @@ function declareTestsUsingBootstrap() {
           const nextAndThrowBtn = compEl.children[1];
           const nextAndThrowDirBtn = compEl.children[2];
 
+          // Note: the amount of events sent to the logger will differ between ViewEngine
+          // and Ivy, because Ivy doesn't attach an error context. This means that the amount
+          // of logged errors increases by 1 for Ivy and 2 for ViewEngine after each event.
+          const errorDelta = ivyEnabled ? 1 : 2;
+          let currentErrorIndex = 0;
+
           nextBtn.click();
-          assertValueAndErrors(compEl, 1, 0);
+          assertValueAndErrors(compEl, 1, currentErrorIndex);
+          currentErrorIndex += errorDelta;
           nextBtn.click();
-          assertValueAndErrors(compEl, 2, 2);
+          assertValueAndErrors(compEl, 2, currentErrorIndex);
+          currentErrorIndex += errorDelta;
 
           nextAndThrowBtn.click();
-          assertValueAndErrors(compEl, 3, 4);
+          assertValueAndErrors(compEl, 3, currentErrorIndex);
+          currentErrorIndex += errorDelta;
           nextAndThrowBtn.click();
-          assertValueAndErrors(compEl, 4, 6);
+          assertValueAndErrors(compEl, 4, currentErrorIndex);
+          currentErrorIndex += errorDelta;
 
           nextAndThrowDirBtn.click();
-          assertValueAndErrors(compEl, 5, 8);
+          assertValueAndErrors(compEl, 5, currentErrorIndex);
+          currentErrorIndex += errorDelta;
           nextAndThrowDirBtn.click();
-          assertValueAndErrors(compEl, 6, 10);
+          assertValueAndErrors(compEl, 6, currentErrorIndex);
+          currentErrorIndex += errorDelta;
 
           // Assert that there were no more errors
-          expect(logger.errors.length).toBe(12);
+          expect(logger.errors.length).toBe(currentErrorIndex);
           done();
         });
 
@@ -503,7 +537,9 @@ function declareTestsUsingBootstrap() {
           expect(compEl).toHaveText(`Value:${value}`);
           expect(logger.errors[errorIndex][0]).toBe('ERROR');
           expect(logger.errors[errorIndex][1].message).toBe(`Error: ${value}`);
-          expect(logger.errors[errorIndex + 1][0]).toBe('ERROR CONTEXT');
+
+          // Ivy doesn't attach an error context.
+          !ivyEnabled && expect(logger.errors[errorIndex + 1][0]).toBe('ERROR CONTEXT');
         }
       });
     }

@@ -6,10 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Statement} from '@angular/compiler';
 import * as ts from 'typescript';
 
-import {TypeScriptReflectionHost} from '../../metadata';
+import {NOOP_DEFAULT_IMPORT_RECORDER, NoopImportRewriter} from '../../imports';
+import {TypeScriptReflectionHost} from '../../reflection';
 import {getDeclaration, makeProgram} from '../../testing/in_memory_typescript';
 import {ImportManager, translateStatement} from '../../translator';
 import {generateSetClassMetadataCall} from '../src/metadata';
@@ -35,7 +35,7 @@ describe('ngtsc setClassMetadata converter', () => {
         `/*@__PURE__*/ i0.ɵsetClassMetadata(Target, [{ type: Component, args: ['metadata'] }], null, null);`);
   });
 
-  it('should convert decorated class construtor parameter metadata', () => {
+  it('should convert decorated class constructor parameter metadata', () => {
     const res = compileAndPrint(`
     import {Component, Inject, Injector} from '@angular/core';
     const FOO = 'foo';
@@ -45,7 +45,7 @@ describe('ngtsc setClassMetadata converter', () => {
     }
     `);
     expect(res).toContain(
-        `[{ type: undefined, decorators: [{ type: Inject, args: [FOO] }] }, { type: Injector }], null);`);
+        `function () { return [{ type: undefined, decorators: [{ type: Inject, args: [FOO] }] }, { type: i0.Injector }]; }, null);`);
   });
 
   it('should convert decorated field metadata', () => {
@@ -82,13 +82,13 @@ function compileAndPrint(contents: string): string {
   ]);
   const host = new TypeScriptReflectionHost(program.getTypeChecker());
   const target = getDeclaration(program, 'index.ts', 'Target', ts.isClassDeclaration);
-  const call = generateSetClassMetadataCall(target, host, false);
+  const call = generateSetClassMetadataCall(target, host, NOOP_DEFAULT_IMPORT_RECORDER, false);
   if (call === null) {
     return '';
   }
   const sf = program.getSourceFile('index.ts') !;
-  const im = new ImportManager(false, 'i');
-  const tsStatement = translateStatement(call, im);
+  const im = new ImportManager(new NoopImportRewriter(), 'i');
+  const tsStatement = translateStatement(call, im, NOOP_DEFAULT_IMPORT_RECORDER);
   const res = ts.createPrinter().printNode(ts.EmitHint.Unspecified, tsStatement, sf);
   return res.replace(/\s+/g, ' ');
 }

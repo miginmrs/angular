@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {Type} from '../../src/interface/type';
 import {setClassMetadata} from '../../src/render3/metadata';
-import {Type} from '../../src/type';
 
 interface Decorator {
   type: any;
@@ -16,7 +16,7 @@ interface Decorator {
 
 interface HasMetadata extends Type<any> {
   decorators?: Decorator[];
-  ctorParameters: {type: any, decorators?: Decorator[]}[];
+  ctorParameters: () => CtorParameter[];
   propDecorators: {[field: string]: Decorator[]};
 }
 
@@ -45,9 +45,9 @@ describe('render3 setClassMetadata()', () => {
 
   it('should set ctor parameter metadata on a type', () => {
     const Foo = metadataOf(class Foo{});
-    Foo.ctorParameters = [{type: 'initial'}];
-    setClassMetadata(Foo, null, [{type: 'test'}], null);
-    expect(Foo.ctorParameters).toEqual([{type: 'test'}]);
+    Foo.ctorParameters = () => [{type: 'initial'}];
+    setClassMetadata(Foo, null, () => [{type: 'test'}], null);
+    expect(Foo.ctorParameters()).toEqual([{type: 'test'}]);
   });
 
   it('should set parameter decorator metadata on a type', () => {

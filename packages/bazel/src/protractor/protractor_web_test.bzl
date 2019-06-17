@@ -4,14 +4,11 @@
 # found in the LICENSE file at https://angular.io/license
 "Run end-to-end tests with Protractor"
 
-load(
-    "@build_bazel_rules_nodejs//internal:node.bzl",
-    "expand_path_into_runfiles",
-    "sources_aspect",
-)
 load("@io_bazel_rules_webtesting//web:web.bzl", "web_test_suite")
 load("@io_bazel_rules_webtesting//web/internal:constants.bzl", "DEFAULT_WRAPPED_TEST_TAGS")
 load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
+load("@build_bazel_rules_nodejs//internal/common:expand_into_runfiles.bzl", "expand_path_into_runfiles")
+load("@build_bazel_rules_nodejs//internal/common:sources_aspect.bzl", "sources_aspect")
 
 _CONF_TMPL = "//packages/bazel/src/protractor:protractor.conf.js"
 
@@ -65,9 +62,9 @@ def _protractor_web_test_impl(ctx):
         substitutions = {
             "TMPL_config": expand_path_into_runfiles(ctx, configuration_file.short_path) if configuration_file else "",
             "TMPL_on_prepare": expand_path_into_runfiles(ctx, on_prepare_file.short_path) if on_prepare_file else "",
-            "TMPL_workspace": ctx.workspace_name,
             "TMPL_server": ctx.executable.server.short_path if ctx.executable.server else "",
             "TMPL_specs": "\n".join(["      '%s'," % e for e in specs]),
+            "TMPL_workspace": ctx.workspace_name,
         },
     )
 
@@ -77,7 +74,10 @@ def _protractor_web_test_impl(ctx):
         output = ctx.outputs.executable,
         is_executable = True,
         content = """#!/usr/bin/env bash
-if [ -e "$RUNFILE_MANIFEST_FILE" ]; then
+# Immediately exit if any command fails.
+set -e
+
+if [ -e "$RUNFILES_MANIFEST_FILE" ]; then
   while read line; do
     declare -a PARTS=($line)
     if [ "${{PARTS[0]}}" == "{TMPL_protractor}" ]; then
@@ -85,7 +85,7 @@ if [ -e "$RUNFILE_MANIFEST_FILE" ]; then
     elif [ "${{PARTS[0]}}" == "{TMPL_conf}" ]; then
       readonly CONF=${{PARTS[1]}}
     fi
-  done < $RUNFILE_MANIFEST_FILE
+  done < $RUNFILES_MANIFEST_FILE
 else
   readonly PROTRACTOR=../{TMPL_protractor}
   readonly CONF=../{TMPL_conf}
@@ -121,14 +121,17 @@ _protractor_web_test = rule(
     test = True,
     executable = True,
     attrs = {
+        "srcs": attr.label_list(
+            doc = "A list of JavaScript test files",
+            allow_files = [".js"],
+        ),
         "configuration": attr.label(
             doc = "Protractor configuration file",
             allow_single_file = True,
             aspects = [sources_aspect],
         ),
-        "srcs": attr.label_list(
-            doc = "A list of JavaScript test files",
-            allow_files = [".js"],
+        "data": attr.label_list(
+            doc = "Runtime dependencies",
         ),
         "on_prepare": attr.label(
             doc = """A file with a node.js script to run once before all tests run.
@@ -137,27 +140,22 @@ _protractor_web_test = rule(
             allow_single_file = True,
             aspects = [sources_aspect],
         ),
-        "deps": attr.label_list(
-            doc = "Other targets which produce JavaScript such as `ts_library`",
+        "protractor": attr.label(
+            doc = "Protractor executable target (set by protractor_web_test macro)",
+            executable = True,
+            cfg = "target",
             allow_files = True,
-            aspects = [sources_aspect],
-        ),
-        "data": attr.label_list(
-            doc = "Runtime dependencies",
         ),
         "server": attr.label(
             doc = "Optional server executable target",
             executable = True,
             cfg = "target",
-            single_file = False,
             allow_files = True,
         ),
-        "protractor": attr.label(
-            doc = "Protractor executable target (set by protractor_web_test macro)",
-            executable = True,
-            cfg = "target",
-            single_file = False,
+        "deps": attr.label_list(
+            doc = "Other targets which produce JavaScript such as `ts_library`",
             allow_files = True,
+            aspects = [sources_aspect],
         ),
         "_conf_tmpl": attr.label(
             default = Label(_CONF_TMPL),
@@ -175,6 +173,7 @@ def protractor_web_test(
         data = [],
         server = None,
         tags = [],
+        protractor = "@npm//node_modules/protractor:bin/protractor",
         **kwargs):
     """Runs a protractor test in a browser.
 
@@ -189,6 +188,9 @@ def protractor_web_test(
       data: Runtime dependencies
       server: Optional server executable target
       tags: Standard Bazel tags, this macro adds one for ibazel
+      protractor: Protractor entry_point. Defaults to @npm//node_modules/protractor:bin/protractor
+          but should be changed to @your_npm_workspace//node_modules/protractor:bin/protractor if
+          you are not using @npm for your npm dependencies.
       **kwargs: passed through to `_protractor_web_test`
     """
 
@@ -196,7 +198,7 @@ def protractor_web_test(
 
     nodejs_binary(
         name = protractor_bin_name,
-        entry_point = "protractor/bin/protractor",
+        entry_point = protractor,
         data = srcs + deps + data,
         testonly = 1,
         visibility = ["//visibility:private"],
@@ -246,6 +248,7 @@ def protractor_web_test_suite(
         visibility = None,
         web_test_data = [],
         wrapped_test_tags = None,
+        protractor = "@npm//node_modules/protractor:bin/protractor",
         **remaining_keyword_args):
     """Defines a test_suite of web_test targets that wrap a protractor_web_test target.
 
@@ -279,6 +282,9 @@ def protractor_web_test_suite(
       visibility: List of labels; optional.
       web_test_data: Data dependencies for the web_test.
       wrapped_test_tags: A list of test tag strings to use for the wrapped test
+      protractor: Protractor entry_point. Defaults to @npm//node_modules/protractor:bin/protractor
+          but should be changed to @your_npm_workspace//node_modules/protractor:bin/protractor if
+          you are not using @npm for your npm dependencies.
       **remaining_keyword_args: Arguments for the wrapped test target.
     """
 
@@ -296,7 +302,7 @@ def protractor_web_test_suite(
 
     nodejs_binary(
         name = protractor_bin_name,
-        entry_point = "protractor/bin/protractor",
+        entry_point = protractor,
         data = srcs + deps + data,
         testonly = 1,
         visibility = ["//visibility:private"],

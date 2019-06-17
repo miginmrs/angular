@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Component, Directive, InjectionToken, NgModule, Pipe, PlatformRef, SchemaMetadata, Type} from '@angular/core';
+import {Component, Directive, InjectFlags, InjectionToken, NgModule, Pipe, PlatformRef, SchemaMetadata, Type} from '@angular/core';
 
 import {ComponentFixture} from './component_fixture';
 import {MetadataOverride} from './metadata_override';
@@ -114,22 +114,15 @@ export interface TestBedStatic {
     deps?: any[],
   }): TestBedStatic;
 
+  get<T>(token: Type<T>|InjectionToken<T>, notFoundValue?: T, flags?: InjectFlags): any;
+  // TODO: switch back to official deprecation marker once TSLint issue is resolved
+  // https://github.com/palantir/tslint/issues/4522
   /**
-   * Overwrites all providers for the given token with the given provider definition.
-   *
-   * @deprecated as it makes all NgModules lazy. Introduced only for migrating off of it.
+   * deprecated from v8.0.0 use Type<T> or InjectionToken<T>
+   * This does not use the deprecated jsdoc tag on purpose
+   * because it renders all overloads as deprecated in TSLint
+   * due to https://github.com/palantir/tslint/issues/4522.
    */
-  deprecatedOverrideProvider(token: any, provider: {
-    useFactory: Function,
-    deps: any[],
-  }): void;
-  deprecatedOverrideProvider(token: any, provider: {useValue: any;}): void;
-  deprecatedOverrideProvider(token: any, provider: {
-    useFactory?: Function,
-    useValue?: any,
-    deps?: any[],
-  }): TestBedStatic;
-
   get(token: any, notFoundValue?: any): any;
 
   createComponent<T>(component: Type<T>): ComponentFixture<T>;

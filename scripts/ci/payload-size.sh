@@ -51,7 +51,7 @@ addTimestamp() {
   payloadData="$payloadData\"timestamp\": $timestamp, "
 }
 
-# Write travis commit message to global variable `$payloadData`.
+# Write the commit message for the current CI commit range to global variable `$payloadData`.
 #   $1: string - The commit range for this build (in `<SHA-1>...<SHA-2>` format).
 addMessage() {
   commitRange="$1"
@@ -136,15 +136,17 @@ trackPayloadSize() {
   # Save the file sizes to be retrieved from `payload-size.js`.
   echo "$(payloadToJson)" > /tmp/current.log
 
+  # TODO: Temporarily disabled until we get back `CIRCLE_COMPARE_URL` or another way to get the
+  #       commit range. Re-enable once the issue is resolved.
   # If this is a non-PR build, upload the data to firebase.
-  if [[ "$CI_PULL_REQUEST" == "false" ]]; then
-    if [[ $trackChangeType = true ]]; then
-      addChangeType $CI_COMMIT_RANGE
-    fi
-    addTimestamp
-    addMessage $CI_COMMIT_RANGE
-    uploadData $name
-  fi
+  # if [[ "$CI_PULL_REQUEST" == "false" ]]; then
+  #   if [[ $trackChangeType = true ]]; then
+  #     addChangeType $CI_COMMIT_RANGE
+  #   fi
+  #   addTimestamp
+  #   addMessage $CI_COMMIT_RANGE
+  #   uploadData $name
+  # fi
 
   # Check the file sizes against the specified limits.
   if [[ $checkSize = true ]]; then

@@ -23,7 +23,7 @@ Just run the [`ng test`](cli/test) CLI command:
 </code-example>
 
 The `ng test` command builds the app in _watch mode_,
-and launches the [karma test runner](https://karma-runner.github.io).
+and launches the [Karma test runner](https://karma-runner.github.io).
 
 The console output looks a bit like this:
 
@@ -55,15 +55,15 @@ The tests run again, the browser refreshes, and the new test results appear.
 
 #### Configuration
 
-The CLI takes care of Jasmine and karma configuration for you.
+The CLI takes care of Jasmine and Karma configuration for you.
 
 You can fine-tune many options by editing the `karma.conf.js` and
 the `test.ts` files in the `src/` folder.
 
-The `karma.conf.js` file is a partial karma configuration file.
-The CLI constructs the full runtime configuration in memory,based on application structure specified in the `angular.json` file, supplemented by `karma.conf.js`.
+The `karma.conf.js` file is a partial Karma configuration file.
+The CLI constructs the full runtime configuration in memory, based on application structure specified in the `angular.json` file, supplemented by `karma.conf.js`.
 
-Search the web for more details about Jasmine and karma configuration.
+Search the web for more details about Jasmine and Karma configuration.
 
 #### Other test frameworks
 
@@ -99,7 +99,7 @@ Continuous integration (CI) servers let you set up your project repository so th
 There are paid CI services like Circle CI and Travis CI, and you can also host your own for free using Jenkins and others. 
 Although Circle CI and Travis CI are paid services, they are provided free for open source projects. 
 You can create a public project on GitHub and add these services without paying. 
-Contributions to the Angular repo are automatically run through a whole suite of Circle CI and Travis CI tests.
+Contributions to the Angular repo are automatically run through a whole suite of Circle CI tests.
 
 This article explains how to configure your project to run Circle CI and Travis CI, and also update your test configuration to be able to run tests in the Chrome browser in either environment.
 
@@ -126,8 +126,8 @@ jobs:
           key: my-project-{{ .Branch }}-{{ checksum "package-lock.json" }}
           paths:
             - "node_modules"
-      - run: npm run test -- --single-run --no-progress --browser=ChromeHeadlessCI
-      - run: npm run e2e -- --no-progress --config=protractor-ci.conf.js
+      - run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadlessCI
+      - run: npm run e2e -- --protractor-config=e2e/protractor-ci.conf.js
 ```
 
 This configuration caches `node_modules/` and uses [`npm run`](https://docs.npmjs.com/cli/run-script) to run CLI commands, because `@angular/cli` is not installed globally. 
@@ -167,8 +167,8 @@ install:
   - npm install
 
 script:
-  - npm run test -- --single-run --no-progress --browser=ChromeHeadlessCI
-  - npm run e2e -- --no-progress --config=protractor-ci.conf.js
+  - npm run test -- --no-watch --no-progress --browsers=ChromeHeadlessCI
+  - npm run e2e -- --protractor-config=e2e/protractor-ci.conf.js
 ```
 
 This does the same things as the Circle CI configuration, except that Travis doesn't come with Chrome, so we use Chromium instead.
@@ -201,7 +201,7 @@ customLaunchers: {
 },
 ```
 
-* Create a new file, `protractor-ci.conf.js`, in the root folder of your project, which extends the original `protractor.conf.js`:
+* In the root folder of your e2e tests project, create a new file named `protractor-ci.conf.js`. This new file extends the original `protractor.conf.js`.
 ```
 const config = require('./protractor.conf').config;
 
@@ -218,8 +218,8 @@ exports.config = config;
 Now you can run the following commands to use the `--no-sandbox` flag:
 
 <code-example language="sh" class="code-shell">
-  ng test --single-run --no-progress --browser=ChromeHeadlessCI
-  ng e2e --no-progress --config=protractor-ci.conf.js
+  ng test --no-watch --no-progress --browsers=ChromeHeadlessCI
+  ng e2e --protractor-config=e2e/protractor-ci.conf.js
 </code-example>
 
 <div class="alert is-helpful">
@@ -238,7 +238,7 @@ Code coverage reports show you  any parts of our code base that may not be prope
 To generate a coverage report run the following command in the root of your project.
 
 <code-example language="sh" class="code-shell">
-  ng test --watch=false --code-coverage
+  ng test --no-watch --code-coverage
 </code-example>
 
 When  the tests are complete, the command creates a new `/coverage` folder in the project. Open the `index.html` file to see a report with your source code and code coverage values.
@@ -289,7 +289,7 @@ written without assistance from Angular testing utilities.
 #### Services with dependencies
 
 Services often depend on other services that Angular injects into the constructor.
-In many cases, it easy to create and _inject_ these dependencies by hand while
+In many cases, it's easy to create and _inject_ these dependencies by hand while
 calling the service's constructor.
 
 The `MasterService` is a simple example:
@@ -318,7 +318,7 @@ Prefer spies as they are usually the easiest way to mock services.
 
 These standard testing techniques are great for unit testing services in isolation.
 
-However, you almost always inject service into application classes using Angular
+However, you almost always inject services into application classes using Angular
 dependency injection and you should have tests that reflect that usage pattern.
 Angular testing utilities make it easy to investigate how injected services behave.
 
@@ -428,7 +428,7 @@ to extract the setup variables that it needs.
 Many developers feel this approach is cleaner and more explicit than the
 traditional `beforeEach()` style.
 
-Although this testing guide follows the tradition style and
+Although this testing guide follows the traditional style and
 the default [CLI schematics](https://github.com/angular/angular-cli)
 generate test files with `beforeEach()` and `TestBed`,
 feel free to adopt _this alternative approach_ in your own projects.
@@ -469,13 +469,6 @@ The `HttpClientTestingModule` can make these testing scenarios more manageable.
 While the _code sample_ accompanying this guide demonstrates `HttpClientTestingModule`,
 this page defers to the [Http guide](guide/http#testing-http-requests),
 which covers testing with the `HttpClientTestingModule` in detail.
-
-<div class="alert is-helpful">
-
-This guide's sample code also demonstrates testing of the _legacy_ `HttpModule`
-in `app/model/http-hero.service.spec.ts`.
-
-</div>
 
 
 ## Component Test Basics
@@ -2205,7 +2198,7 @@ seen in the `AppComponent` template.
 
 The URL bound to the `[routerLink]` attribute flows in to the directive's `linkParams` property.
 
-The `host` metadata property wires the click event of the host element
+The `HostListener` wires the click event of the host element
 (the `<a>` anchor elements in `AppComponent`) to the stub directive's `onClick` method.
 
 Clicking the anchor should trigger the `onClick()` method,
@@ -2398,7 +2391,7 @@ So when you call `createComponent()`, the `TestBed` compiles implicitly.
 
 That's not a problem when the source code is in memory.
 But the `BannerComponent` requires external files
-that the compile must read from the file system,
+that the compiler must read from the file system,
 an inherently _asynchronous_ operation.
 
 If the `TestBed` were allowed to continue, the tests would run and fail mysteriously
@@ -2650,10 +2643,10 @@ It takes two arguments: the component type to override (`HeroDetailComponent`) a
 The [override metadata object](#metadata-override-object) is a generic defined as follows:
 
 <code-example format="." language="javascript">
-  type MetadataOverride<T> = {
-    add?: Partial<T>;
-    remove?: Partial<T>;
-    set?: Partial<T>;
+  type MetadataOverride&lt;T&gt; = {
+    add?: Partial&lt;T&gt;;
+    remove?: Partial&lt;T&gt;;
+    set?: Partial&lt;T&gt;;
   };
 </code-example>
 
@@ -2816,7 +2809,7 @@ Consider adding component tests such as this one:
 
 Debug specs in the browser in the same way that you debug an application.
 
-1. Reveal the karma browser window (hidden earlier).
+1. Reveal the Karma browser window (hidden earlier).
 1. Click the **DEBUG** button; it opens a new browser tab and re-runs the tests.
 1. Open the browser's “Developer Tools” (`Ctrl-Shift-I` on windows; `Command-Option-I` in OSX).
 1. Pick the "sources" section.
@@ -3008,10 +3001,10 @@ appropriate to the method, that is, the parameter of an `@NgModule`,
 `@Component`, `@Directive`, or `@Pipe`.
 
 <code-example format="." language="javascript">
-  type MetadataOverride<T> = {
-    add?: Partial<T>;
-    remove?: Partial<T>;
-    set?: Partial<T>;
+  type MetadataOverride&lt;T&gt; = {
+    add?: Partial&lt;T&gt;;
+    remove?: Partial&lt;T&gt;;
+    set?: Partial&lt;T&gt;;
   };
 </code-example>
 

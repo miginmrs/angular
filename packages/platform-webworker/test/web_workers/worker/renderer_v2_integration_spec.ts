@@ -20,7 +20,7 @@ import {Serializer} from '@angular/platform-webworker/src/web_workers/shared/ser
 import {ServiceMessageBrokerFactory} from '@angular/platform-webworker/src/web_workers/shared/service_message_broker';
 import {MessageBasedRenderer2} from '@angular/platform-webworker/src/web_workers/ui/renderer';
 import {WebWorkerRendererFactory2} from '@angular/platform-webworker/src/web_workers/worker/renderer';
-import {fixmeIvy} from '@angular/private/testing';
+import {modifiedInIvy} from '@angular/private/testing';
 
 import {PairedMessageBuses, createPairedMessageBuses} from '../shared/web_worker_test_util';
 
@@ -45,8 +45,7 @@ let lastCreatedRenderer: Renderer2;
       // UI side
       uiRenderStore = new RenderStore();
       const uiInjector = new TestBed();
-      uiInjector.platform = platformBrowserDynamicTesting();
-      uiInjector.ngModule = BrowserTestingModule;
+      uiInjector.initTestEnvironment(BrowserTestingModule, platformBrowserDynamicTesting());
       uiInjector.configureTestingModule({
         providers: [
           Serializer,
@@ -95,7 +94,7 @@ let lastCreatedRenderer: Renderer2;
       expect(renderEl).toHaveText('Hello World!');
     });
 
-    fixmeIvy('#FW-750 - fixture.debugElement is null')
+    modifiedInIvy('DebugElements are not supported on web-worker')
         .it('should update any element property/attributes/class/style(s) independent of the compilation on the root element and other elements',
             () => {
               const fixture =
@@ -131,16 +130,15 @@ let lastCreatedRenderer: Renderer2;
               checkSetters(fixture.componentRef, fixture.debugElement.children[0].nativeElement);
             });
 
-    fixmeIvy('#FW-664 ng-reflect-* is not supported')
-        .it('should update any template comment property/attributes', () => {
-          const fixture =
-              TestBed.overrideTemplate(MyComp2, '<ng-container *ngIf="ctxBoolProp"></ng-container>')
-                  .createComponent(MyComp2);
-          fixture.componentInstance.ctxBoolProp = true;
-          fixture.detectChanges();
-          const el = getRenderElement(fixture.nativeElement);
-          expect(getDOM().getInnerHTML(el)).toContain('"ng-reflect-ng-if": "true"');
-        });
+    it('should update any template comment property/attributes', () => {
+      const fixture =
+          TestBed.overrideTemplate(MyComp2, '<ng-container *ngIf="ctxBoolProp"></ng-container>')
+              .createComponent(MyComp2);
+      fixture.componentInstance.ctxBoolProp = true;
+      fixture.detectChanges();
+      const el = getRenderElement(fixture.nativeElement);
+      expect(getDOM().getInnerHTML(el)).toContain('"ng-reflect-ng-if": "true"');
+    });
 
     it('should add and remove fragments', () => {
       const fixture =
@@ -161,16 +159,17 @@ let lastCreatedRenderer: Renderer2;
     });
 
     if (getDOM().supportsDOMEvents()) {
-      fixmeIvy('#FW-750 - fixture.debugElement is null').it('should listen to events', () => {
-        const fixture = TestBed.overrideTemplate(MyComp2, '<input (change)="ctxNumProp = 1">')
-                            .createComponent(MyComp2);
+      modifiedInIvy('DebugElements are not supported on web-worker')
+          .it('should listen to events', () => {
+            const fixture = TestBed.overrideTemplate(MyComp2, '<input (change)="ctxNumProp = 1">')
+                                .createComponent(MyComp2);
 
-        const el = fixture.debugElement.children[0];
-        dispatchEvent(getRenderElement(el.nativeElement), 'change');
-        expect(fixture.componentInstance.ctxNumProp).toBe(1);
+            const el = fixture.debugElement.children[0];
+            dispatchEvent(getRenderElement(el.nativeElement), 'change');
+            expect(fixture.componentInstance.ctxNumProp).toBe(1);
 
-        fixture.destroy();
-      });
+            fixture.destroy();
+          });
     }
   });
 }

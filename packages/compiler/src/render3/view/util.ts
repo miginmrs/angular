@@ -8,10 +8,20 @@
 
 import {ConstantPool} from '../../constant_pool';
 import * as o from '../../output/output_ast';
+import {splitAtColon} from '../../util';
 import * as t from '../r3_ast';
-
 import {R3QueryMetadata} from './api';
 import {isI18nAttribute} from './i18n/util';
+
+/**
+ * Checks whether an object key contains potentially unsafe chars, thus the key should be wrapped in
+ * quotes. Note: we do not wrap all keys into quotes, as it may have impact on minification and may
+ * bot work in some cases when object keys are mangled by minifier.
+ *
+ * TODO(FW-1136): this is a temporary solution, we need to come up with a better way of working with
+ * inputs that contain potentially unsafe chars.
+ */
+const UNSAFE_OBJECT_KEY_NAME_REGEXP = /-/;
 
 /** Name of the temporary to use during data binding */
 export const TEMPORARY_NAME = '_t';
@@ -57,7 +67,7 @@ export function unsupported(feature: string): never {
 
 export function invalid<T>(arg: o.Expression | o.Statement | t.Node): never {
   throw new Error(
-      `Invalid state: Visitor ${this.constructor.name} doesn't handle ${o.constructor.name}`);
+      `Invalid state: Visitor ${this.constructor.name} doesn't handle ${arg.constructor.name}`);
 }
 
 export function asLiteral(value: any): o.Expression {
@@ -67,17 +77,38 @@ export function asLiteral(value: any): o.Expression {
   return o.literal(value, o.INFERRED_TYPE);
 }
 
-export function conditionallyCreateMapObjectLiteral(keys: {[key: string]: string | string[]}):
-    o.Expression|null {
+export function conditionallyCreateMapObjectLiteral(
+    keys: {[key: string]: string | string[]}, keepDeclared?: boolean): o.Expression|null {
   if (Object.getOwnPropertyNames(keys).length > 0) {
-    return mapToExpression(keys);
+    return mapToExpression(keys, keepDeclared);
   }
   return null;
 }
 
-export function mapToExpression(map: {[key: string]: any}, quoted = false): o.Expression {
-  return o.literalMap(
-      Object.getOwnPropertyNames(map).map(key => ({key, quoted, value: asLiteral(map[key])})));
+function mapToExpression(
+    map: {[key: string]: string | string[]}, keepDeclared?: boolean): o.Expression {
+  return o.literalMap(Object.getOwnPropertyNames(map).map(key => {
+    // canonical syntax: `dirProp: publicProp`
+    // if there is no `:`, use dirProp = elProp
+    const value = map[key];
+    let declaredName: string;
+    let publicName: string;
+    let minifiedName: string;
+    if (Array.isArray(value)) {
+      [publicName, declaredName] = value;
+    } else {
+      [declaredName, publicName] = splitAtColon(key, [key, value]);
+    }
+    minifiedName = declaredName;
+    return {
+      key: minifiedName,
+      // put quotes around keys that contain potentially unsafe characters
+      quoted: UNSAFE_OBJECT_KEY_NAME_REGEXP.test(minifiedName),
+      value: (keepDeclared && publicName !== declaredName) ?
+          o.literalArr([asLiteral(publicName), asLiteral(declaredName)]) :
+          asLiteral(publicName)
+    };
+  }));
 }
 
 /**
@@ -134,13 +165,19 @@ export function getAttrsForDirectiveMatching(elOrTpl: t.Element | t.Template):
     {[name: string]: string} {
   const attributesMap: {[name: string]: string} = {};
 
-  elOrTpl.attributes.forEach(a => {
-    if (!isI18nAttribute(a.name)) {
-      attributesMap[a.name] = a.value;
-    }
-  });
-  elOrTpl.inputs.forEach(i => { attributesMap[i.name] = ''; });
-  elOrTpl.outputs.forEach(o => { attributesMap[o.name] = ''; });
+
+  if (elOrTpl instanceof t.Template && elOrTpl.tagName !== 'ng-template') {
+    elOrTpl.templateAttrs.forEach(a => attributesMap[a.name] = '');
+  } else {
+    elOrTpl.attributes.forEach(a => {
+      if (!isI18nAttribute(a.name)) {
+        attributesMap[a.name] = a.value;
+      }
+    });
+
+    elOrTpl.inputs.forEach(i => { attributesMap[i.name] = ''; });
+    elOrTpl.outputs.forEach(o => { attributesMap[o.name] = ''; });
+  }
 
   return attributesMap;
 }

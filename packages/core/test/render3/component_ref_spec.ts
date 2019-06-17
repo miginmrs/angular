@@ -10,7 +10,7 @@ import {Injector, NgModuleRef, ViewEncapsulation} from '../../src/core';
 import {ComponentFactory} from '../../src/linker/component_factory';
 import {RendererFactory2} from '../../src/render/api';
 import {injectComponentFactoryResolver} from '../../src/render3/component_ref';
-import {defineComponent} from '../../src/render3/index';
+import {ɵɵdefineComponent} from '../../src/render3/index';
 import {domRendererFactory3} from '../../src/render3/interfaces/renderer';
 import {Sanitizer} from '../../src/sanitization/security';
 
@@ -18,15 +18,37 @@ describe('ComponentFactory', () => {
   const cfr = injectComponentFactoryResolver();
 
   describe('constructor()', () => {
-    it('should correctly populate public properties', () => {
+    it('should correctly populate default properties', () => {
       class TestComponent {
-        static ngComponentDef = defineComponent({
+        static ngComponentDef = ɵɵdefineComponent({
+          type: TestComponent,
+          selectors: [['test', 'foo'], ['bar']],
+          consts: 0,
+          vars: 0,
+          template: () => undefined,
+          factory: () => new TestComponent(),
+        });
+      }
+
+      const cf = cfr.resolveComponentFactory(TestComponent);
+
+      expect(cf.selector).toBe('test');
+      expect(cf.componentType).toBe(TestComponent);
+      expect(cf.ngContentSelectors).toEqual([]);
+      expect(cf.inputs).toEqual([]);
+      expect(cf.outputs).toEqual([]);
+    });
+
+    it('should correctly populate defined properties', () => {
+      class TestComponent {
+        static ngComponentDef = ɵɵdefineComponent({
           type: TestComponent,
           encapsulation: ViewEncapsulation.None,
           selectors: [['test', 'foo'], ['bar']],
           consts: 0,
           vars: 0,
           template: () => undefined,
+          ngContentSelectors: ['*', 'a', 'b'],
           factory: () => new TestComponent(),
           inputs: {
             in1: 'in1',
@@ -42,7 +64,7 @@ describe('ComponentFactory', () => {
       const cf = cfr.resolveComponentFactory(TestComponent);
 
       expect(cf.componentType).toBe(TestComponent);
-      expect(cf.ngContentSelectors).toEqual([]);
+      expect(cf.ngContentSelectors).toEqual(['*', 'a', 'b']);
       expect(cf.selector).toBe('test');
 
       expect(cf.inputs).toEqual([
@@ -67,7 +89,7 @@ describe('ComponentFactory', () => {
       createRenderer3Spy = spyOn(domRendererFactory3, 'createRenderer').and.callThrough();
 
       class TestComponent {
-        static ngComponentDef = defineComponent({
+        static ngComponentDef = ɵɵdefineComponent({
           type: TestComponent,
           encapsulation: ViewEncapsulation.None,
           selectors: [['test']],
@@ -183,6 +205,88 @@ describe('ComponentFactory', () => {
 
 
            cf.create(injector, undefined, undefined, { injector: mInjector } as NgModuleRef<any>);
+
+           expect(mSanitizerFactorySpy).toHaveBeenCalled();
+         });
+    });
+
+    describe('(when the factory is bound to a `ngModuleRef`)', () => {
+      it('should retrieve `RendererFactory2` from the specified injector first', () => {
+        const injector = Injector.create([
+          {provide: RendererFactory2, useValue: {createRenderer: createRenderer2Spy}},
+        ]);
+        (cf as any).ngModule = {
+          injector: Injector.create([
+            {provide: RendererFactory2, useValue: {createRenderer: createRenderer3Spy}},
+          ])
+        };
+
+        cf.create(injector);
+
+        expect(createRenderer2Spy).toHaveBeenCalled();
+        expect(createRenderer3Spy).not.toHaveBeenCalled();
+      });
+
+      it('should retrieve `RendererFactory2` from the `ngModuleRef` if not provided by the injector',
+         () => {
+           const injector = Injector.create([]);
+           (cf as any).ngModule = {
+             injector: Injector.create([
+               {provide: RendererFactory2, useValue: {createRenderer: createRenderer2Spy}},
+             ])
+           };
+
+           cf.create(injector);
+
+           expect(createRenderer2Spy).toHaveBeenCalled();
+           expect(createRenderer3Spy).not.toHaveBeenCalled();
+         });
+
+      it('should fall back to `domRendererFactory3` if `RendererFactory2` is not provided', () => {
+        const injector = Injector.create([]);
+        (cf as any).ngModule = {injector: Injector.create([])};
+
+        cf.create(injector);
+
+        expect(createRenderer2Spy).not.toHaveBeenCalled();
+        expect(createRenderer3Spy).toHaveBeenCalled();
+      });
+
+      it('should retrieve `Sanitizer` from the specified injector first', () => {
+        const iSanitizerFactorySpy =
+            jasmine.createSpy('Injector#sanitizerFactory').and.returnValue({});
+        const injector = Injector.create([
+          {provide: Sanitizer, useFactory: iSanitizerFactorySpy, deps: []},
+        ]);
+
+        const mSanitizerFactorySpy =
+            jasmine.createSpy('NgModuleRef#sanitizerFactory').and.returnValue({});
+        (cf as any).ngModule = {
+          injector: Injector.create([
+            {provide: Sanitizer, useFactory: mSanitizerFactorySpy, deps: []},
+          ])
+        };
+
+        cf.create(injector);
+
+        expect(iSanitizerFactorySpy).toHaveBeenCalled();
+        expect(mSanitizerFactorySpy).not.toHaveBeenCalled();
+      });
+
+      it('should retrieve `Sanitizer` from the `ngModuleRef` if not provided by the injector',
+         () => {
+           const injector = Injector.create([]);
+
+           const mSanitizerFactorySpy =
+               jasmine.createSpy('NgModuleRef#sanitizerFactory').and.returnValue({});
+           (cf as any).ngModule = {
+             injector: Injector.create([
+               {provide: Sanitizer, useFactory: mSanitizerFactorySpy, deps: []},
+             ])
+           };
+
+
+           cf.create(injector);
 
            expect(mSanitizerFactorySpy).toHaveBeenCalled();
          });
